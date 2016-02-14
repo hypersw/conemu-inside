@@ -146,13 +146,14 @@ namespace ConEmuInside
                 guiMacro = null;
             }
 
-            string lsResult;
             try
             {
                 if (guiMacro == null)
                     guiMacro = new GuiMacro(ConEmuCD);
-                lsResult = guiMacro.Execute(ConEmu.Id.ToString(), asMacro);
-                Debugger.Log(0, "GuiMacroResult", lsResult+"\n");
+                guiMacro.Execute(ConEmu.Id.ToString(), asMacro,
+                    (GuiMacro.GuiMacroResult code, string data) => {
+                        Debugger.Log(0, "GuiMacroResult", "code=" + code.ToString() + "; data=" + data + "\n");
+                    });
             }
             catch (GuiMacroException e)
             {
@@ -260,16 +261,16 @@ namespace ConEmuInside
                 " -LoadCfgFile \"" + argXmlFile.Text + "\"" +
                 " -Dir \"" + argDirectory.Text + "\"" +
                 (argLog.Checked ? " -Log" : "") +
-                " -cmd " + // This one MUST be the last switch
-                argCmdLine.Text + sRunAs // And the shell command line itself
+                " -detached"
+                //" -cmd " + // This one MUST be the last switch
+                //argCmdLine.Text + sRunAs // And the shell command line itself
                 ;
+
+            promptBox.Text = "Shell(\"new_console\", \"\", \"" + (argCmdLine.Text + sRunAs).Replace("\"", "\\\"") + "\")";
 
             try {
                 // Start ConEmu
                 ConEmu = Process.Start(argConEmuExe.Text, sRunArgs);
-                RefreshControls(true);
-                // Start monitoring
-                timer1.Start();
             } catch (System.ComponentModel.Win32Exception ex) {
                 RefreshControls(false);
                 MessageBox.Show(ex.Message + "\r\n\r\n" +
@@ -277,7 +278,14 @@ namespace ConEmuInside
                     "Arguments:\r\n" + sRunArgs,
                     ex.GetType().FullName + " (" + ex.NativeErrorCode.ToString() + ")",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
+
+            RefreshControls(true);
+            // Start monitoring
+            timer1.Start();
+            // Execute "startup" macro
+            macroBtn_Click(null, null);
         }
 
         private void startArgs_Enter(object sender, EventArgs e)
@@ -300,6 +308,11 @@ namespace ConEmuInside
                     MoveWindow(hConEmu, 0, 0, termPanel.Width, termPanel.Height, true);
                 }
             }
+        }
+
+        private void closeBtn_Click(object sender, EventArgs e)
+        {
+            ExecuteGuiMacro("Close(2,1)");
         }
     }
 }
